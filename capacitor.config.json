@@ -1,0 +1,8 @@
+{
+  "appId": "com.example.catsandbox",
+  "appName": "Cat Sandbox",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
