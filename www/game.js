@@ -5,7 +5,7 @@
   const I18N = {
     ru: {
       title: 'Кот-песочница',
-      subtitle: 'Дом, улица и соседи',
+      subtitle: 'Дом, мегаполис и прохожие',
       play: 'Играть',
       settings: 'Настройки',
       language: 'Язык',
@@ -16,24 +16,28 @@
       act: 'Действие',
       attack: 'Атака',
       help: 'Ходи джойстиком слева · Атака · Действие · Писать (ПК: WASD, Пробел, E, G)',
-      map_street: 'Улица',
+      map_city: 'Мегаполис',
       map_home: 'Твой дом',
       map_murka: 'Дом Мурки',
       map_bur: 'Дом Бурого',
+      house_n: 'Дом {n}',
       cat_ginger: 'Рыжий',
       cat_black: 'Чёрный Барсик',
       cat_snow: 'Снежок',
       cat_grey: 'Серый',
       cat_murka: 'Мурка',
       cat_bur: 'Бурый',
+      cat_stray: 'Бродяга',
+      human: 'Прохожий',
       you: 'Ты',
       item_vase: 'Ваза',
       item_plate: 'Тарелка',
       item_cup: 'Кружка',
       item_bin: 'Урна',
       broke: '{label} разбит(а)! +{n}',
-      catDown: '{name} убежал побитый! +20',
+      catDown: '{name} убежал побитый! +{n}',
       catHiss: '{name} шипит!',
+      humanHit: '{name}: «Эй!»',
       scratch: '{name} царапает тебя! −{n}',
       downMsg: 'Тебя побили… Ты очнулся дома. −10 очков',
       slept: 'Ты выспался в кровати. Здоровье полное!',
@@ -45,7 +49,7 @@
     },
     en: {
       title: 'Cat Sandbox',
-      subtitle: 'Home, street and neighbours',
+      subtitle: 'Home, megacity and passers-by',
       play: 'Play',
       settings: 'Settings',
       language: 'Language',
@@ -56,24 +60,28 @@
       act: 'Action',
       attack: 'Attack',
       help: 'Move with the joystick on the left · Attack · Action · Paint (PC: WASD, Space, E, G)',
-      map_street: 'Street',
+      map_city: 'Megacity',
       map_home: 'Your home',
       map_murka: "Murka's house",
       map_bur: "Brown's house",
+      house_n: 'House {n}',
       cat_ginger: 'Ginger',
       cat_black: 'Black Barsik',
       cat_snow: 'Snowball',
       cat_grey: 'Grey',
       cat_murka: 'Murka',
       cat_bur: 'Brown',
+      cat_stray: 'Stray',
+      human: 'Pedestrian',
       you: 'You',
       item_vase: 'Vase',
       item_plate: 'Plate',
       item_cup: 'Mug',
       item_bin: 'Bin',
       broke: '{label} broken! +{n}',
-      catDown: '{name} ran off beaten! +20',
+      catDown: '{name} ran off beaten! +{n}',
       catHiss: '{name} hisses!',
+      humanHit: '{name}: "Hey!"',
       scratch: '{name} scratches you! −{n}',
       downMsg: 'You got beaten up… You woke up at home. −10 points',
       slept: 'You slept in the bed. Health restored!',
@@ -97,6 +105,10 @@
     return s;
   }
 
+  function mapName(def) {
+    return def.nameKey ? t(def.nameKey, def.nameVars) : def.name;
+  }
+
   function applyLang() {
     document.documentElement.lang = lang;
     document.title = t('title');
@@ -109,6 +121,7 @@
   const TS = 32;                                   // размер тайла в мировых пикселях
   const S = TS;
   const SOLID = new Set(['#', 'x', 'f', 'T', 'S', 'B', 'K']);
+  const RESPAWN = 30;                              // секунд до появления нового кота/прохожего
   const ITEM_INFO = {
     vase:  { score: 10, labelKey: 'item_vase',  color: '#3f7fd1' },
     plate: { score: 5,  labelKey: 'item_plate', color: '#f4f4f4' },
@@ -116,50 +129,17 @@
     bin:   { score: 8,  labelKey: 'item_bin',   color: '#7d848e' },
   };
   const SPRAY = ['#ff4d6d', '#ffd166', '#06d6a0', '#4cc9f0', '#f72585', '#ffffff'];
+  const SHIRTS = ['#c0392b', '#2980b9', '#27ae60', '#8e44ad', '#f39c12', '#34495e', '#16a085'];
+  const SKINS = ['#f1c27d', '#e0ac69', '#8d5524', '#ffdbac'];
+  const HAIRS = ['#2c1b0e', '#6b4423', '#d4a017', '#111111', '#a0522d'];
+  const STRAY_COLORS = ['#e8943a', '#2b2b33', '#f2f2f2', '#9a9aa6', '#c9b5a0'];
 
-  // ---------- Карты ----------
-  // kind: out = улица, in = интерьер
-  // Символы: # стена, x куст, f забор, g трава, r дорога, s тротуар,
-  //          . пол, R ковёр, T стол, S диван, B кровать, K кухня, D дверь
-  const MAP_DEFS = {
-    street: {
-      nameKey: 'map_street', kind: 'out',
-      rows: [
-        'xxxxxxxxxxxxxxxxxxxxxxxx',
-        'xggggggggggggggggggggggx',
-        'xg#####gg#####gg#####ggx',
-        'xg#####gg#####gg#####ggx',
-        'xg#####gg#####gg#####ggx',
-        'xg##D##gg##D##gg##D##ggx',
-        'xssssssssssssssssssssssx',
-        'xrrrrrrrrrrrrrrrrrrrrrrx',
-        'xrrrrrrrrrrrrrrrrrrrrrrx',
-        'xssssssssssssssssssssssx',
-        'xggggffffggggggggggggggx',
-        'xggxgggggggggggggggxggg',
-        'xgggggggggggggggggggggx',
-        'xggggggxggggggggggggggx',
-      ],
-      doors: {
-        '4,5':  { to: 'home',  x: 5, y: 7 },
-        '11,5': { to: 'murka', x: 5, y: 7 },
-        '18,5': { to: 'bur',   x: 5, y: 7 },
-      },
-      items: [
-        { kind: 'bin', tx: 14, ty: 6 },
-        { kind: 'bin', tx: 21, ty: 6 },
-        { kind: 'vase', tx: 9, ty: 9 },
-      ],
-      cats: [
-        { nameKey: 'cat_ginger', color: '#e8943a', stripes: true, aggressive: true, tx: 8, ty: 8 },
-        { nameKey: 'cat_black', color: '#2b2b33', aggressive: true, tx: 20, ty: 8 },
-        { nameKey: 'cat_snow', color: '#f2f2f2', aggressive: false, tx: 14, ty: 11 },
-        { nameKey: 'cat_grey', color: '#9a9aa6', stripes: true, aggressive: false, tx: 3, ty: 12 },
-      ],
-    },
+  const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+  // ---------- Шаблоны интерьеров ----------
+  // Символы: # стена, . пол, R ковёр, T стол, S диван, B кровать, K кухня, D дверь
+  const TPL = {
     home: {
-      nameKey: 'map_home', kind: 'in',
       rows: [
         '############',
         '#..........#',
@@ -171,17 +151,13 @@
         '#..........#',
         '#####D######',
       ],
-      doors: { '5,8': { to: 'street', x: 4, y: 6 } },
       items: [
         { kind: 'vase', tx: 2, ty: 4 },
         { kind: 'cup', tx: 3, ty: 4 },
         { kind: 'plate', tx: 2, ty: 2 },
       ],
-      cats: [],
     },
-
     murka: {
-      nameKey: 'map_murka', kind: 'in',
       rows: [
         '############',
         '#..........#',
@@ -193,19 +169,13 @@
         '#..........#',
         '#####D######',
       ],
-      doors: { '5,8': { to: 'street', x: 11, y: 6 } },
       items: [
         { kind: 'vase', tx: 4, ty: 2 },
         { kind: 'cup', tx: 5, ty: 2 },
         { kind: 'cup', tx: 9, ty: 6 },
       ],
-      cats: [
-        { nameKey: 'cat_murka', color: '#c9b5a0', stripes: true, aggressive: false, tx: 8, ty: 4 },
-      ],
     },
-
     bur: {
-      nameKey: 'map_bur', kind: 'in',
       rows: [
         '############',
         '#..........#',
@@ -217,31 +187,128 @@
         '#..........#',
         '#####D######',
       ],
-      doors: { '5,8': { to: 'street', x: 18, y: 6 } },
       items: [
         { kind: 'plate', tx: 1, ty: 2 },
         { kind: 'plate', tx: 2, ty: 2 },
         { kind: 'vase', tx: 3, ty: 4 },
         { kind: 'cup', tx: 5, ty: 5 },
       ],
-      cats: [
-        { nameKey: 'cat_bur', color: '#7a4a22', aggressive: true, big: true, tx: 8, ty: 4 },
-      ],
     },
   };
+
+  // Фиксированные дома. Двери наружу проставит buildCity().
+  const MAP_DEFS = {
+    home: {
+      nameKey: 'map_home', kind: 'in', rows: TPL.home.rows, items: TPL.home.items, doors: {},
+      cats: [],
+    },
+    murka: {
+      nameKey: 'map_murka', kind: 'in', rows: TPL.murka.rows, items: TPL.murka.items, doors: {},
+      cats: [{ nameKey: 'cat_murka', color: '#c9b5a0', stripes: true, aggressive: false, tx: 8, ty: 4 }],
+    },
+    bur: {
+      nameKey: 'map_bur', kind: 'in', rows: TPL.bur.rows, items: TPL.bur.items, doors: {},
+      cats: [{ nameKey: 'cat_bur', color: '#7a4a22', aggressive: true, big: true, tx: 8, ty: 4 }],
+    },
+  };
+
+  // ---------- Генерация мегаполиса ----------
+  // Сетка кварталов: дороги каждые 14 (по X) и 12 (по Y) тайлов.
+  function buildCity() {
+    const W = 98, H = 70;
+    const grid = [];
+    for (let y = 0; y < H; y++) {
+      const row = [];
+      for (let x = 0; x < W; x++) {
+        let ch = 'g';
+        if (x === 0 || y === 0 || x === W - 1 || y === H - 1) {
+          ch = 'x';
+        } else {
+          const mx = x % 14, my = y % 12;
+          const inV = mx >= 5 && mx <= 8;
+          const inH = my >= 4 && my <= 7;
+          if (inV || inH) ch = ((mx === 6 || mx === 7) || (my === 5 || my === 6)) ? 'r' : 's';
+        }
+        row.push(ch);
+      }
+      grid.push(row);
+    }
+
+    const doors = {};
+    const blocks = [];
+    for (let by = 8; by + 7 <= H - 2; by += 12) {
+      for (let bx = 9; bx + 9 <= W - 2; bx += 14) blocks.push([bx, by]);
+    }
+
+    const fixedKeys = ['home', 'murka', 'bur'];
+    blocks.forEach(([bx, by], i) => {
+      const isBuilding = i < 3 || Math.random() < 0.7;
+      if (!isBuilding) {
+        // парк: деревья вперемешку с травой
+        for (let y = by; y < by + 8; y++) {
+          for (let x = bx; x < bx + 10; x++) {
+            if (Math.random() < 0.2) grid[y][x] = 'x';
+          }
+        }
+        return;
+      }
+
+      // здание 6x4, дверь внизу по центру
+      for (let y = by + 1; y <= by + 4; y++) {
+        for (let x = bx + 2; x <= bx + 7; x++) grid[y][x] = '#';
+      }
+      grid[by + 4][bx + 4] = 'D';
+
+      const exit = { to: 'city', x: bx + 4, y: by + 5 };
+      let key;
+      if (i < 3) {
+        key = fixedKeys[i];
+        MAP_DEFS[key].doors['5,8'] = exit;
+      } else {
+        key = 'b' + i;
+        const tpl = rnd([TPL.home, TPL.murka, TPL.bur]);
+        MAP_DEFS[key] = {
+          nameKey: 'house_n', nameVars: { n: i + 1 }, kind: 'in',
+          rows: tpl.rows, items: tpl.items.map(it => ({ ...it })),
+          doors: { '5,8': exit },
+          cats: Math.random() < 0.5
+            ? [{ nameKey: 'cat_stray', color: rnd(STRAY_COLORS), aggressive: Math.random() < 0.4, tx: 6, ty: 3 }]
+            : [],
+        };
+      }
+      doors[`${bx + 4},${by + 4}`] = { to: key, x: 5, y: 7 };
+    });
+
+    const rows = grid.map(r => r.join(''));
+    // несколько урн на тротуарах
+    const items = [];
+    for (let n = 0; n < 40; n++) {
+      const x = Math.floor(Math.random() * W), y = Math.floor(Math.random() * H);
+      if (grid[y][x] === 's') items.push({ kind: 'bin', tx: x, ty: y });
+    }
+    return { nameKey: 'map_city', kind: 'out', rows, doors, items, cats: [], crowd: true };
+  }
+  MAP_DEFS.city = buildCity();
 
   // ---------- Состояние мира ----------
   const worlds = {};
   let cur = null;
   let screen = 'menu';   // menu | settings | game
 
-  function makeCat(c) {
-    const x = c.tx * TS + TS / 2, y = c.ty * TS + TS / 2;
-    const maxHp = c.big ? 100 : 60;
+  function makeNpc(spec) {
+    const x = spec.tx * TS + TS / 2, y = spec.ty * TS + TS / 2;
+    const human = !!spec.human;
+    const big = !!spec.big;
+    const maxHp = human ? 40 : (big ? 100 : 60);
     return {
-      nameKey: c.nameKey, color: c.color, stripes: !!c.stripes, aggressive: !!c.aggressive,
-      big: !!c.big, maxHp, hp: maxHp,
+      human,
+      nameKey: spec.nameKey || (human ? 'human' : 'cat_stray'),
+      color: spec.color, stripes: !!spec.stripes,
+      aggressive: !!spec.aggressive && !human,
+      big, maxHp, hp: maxHp,
+      shirt: spec.shirt, skin: spec.skin, hair: spec.hair,
       x, y, homeX: x, homeY: y,
+      anchor: human ? 0 : 96,            // 0 = может ходить где угодно
       fx: 1, fy: 0, moving: false,
       wdx: 0, wdy: 0, wanderT: 0,
       cd: 0, hit: 0, atkT: 0, flee: 0,
@@ -259,9 +326,36 @@
       items: def.items.map(i => ({
         kind: i.kind, cx: i.tx * TS + TS / 2, cy: i.ty * TS + TS / 2, broken: false,
       })),
-      cats: def.cats.map(makeCat),
+      npcs: def.cats.map(makeNpc),
       marks: [],
+      spawnTiles: null,
     };
+    if (def.crowd) {
+      // список проходимых тайлов для появления людей и котов
+      const tiles = [];
+      for (let y = 0; y < world.H; y++) {
+        for (let x = 0; x < world.W; x++) {
+          const ch = grid[y][x];
+          if (ch === 'r' || ch === 's' || ch === 'g') tiles.push({ tx: x, ty: y });
+        }
+      }
+      world.spawnTiles = tiles;
+      for (let n = 0; n < 14; n++) {
+        const p = rnd(tiles);
+        world.npcs.push(makeNpc({
+          tx: p.tx, ty: p.ty, color: rnd(STRAY_COLORS),
+          stripes: Math.random() < 0.5, aggressive: Math.random() < 0.35,
+          nameKey: Math.random() < 0.5 ? 'cat_stray' : 'cat_snow',
+        }));
+      }
+      for (let n = 0; n < 26; n++) {
+        const p = rnd(tiles);
+        world.npcs.push(makeNpc({
+          tx: p.tx, ty: p.ty, human: true,
+          shirt: rnd(SHIRTS), skin: rnd(SKINS), hair: rnd(HAIRS),
+        }));
+      }
+    }
     worlds[key] = world;
     return world;
   }
@@ -336,7 +430,7 @@
     player.x = tx * TS + TS / 2;
     player.y = ty * TS + TS / 2;
     particles.length = 0;
-    showMsg(t(cur.def.nameKey));
+    showMsg(mapName(cur.def));
   }
 
   // ---------- Игрок ----------
@@ -362,7 +456,7 @@
     const ax = player.x + player.fx * 20, ay = player.y + player.fy * 20;
     let did = false;
 
-    for (const c of cur.cats) {
+    for (const c of cur.npcs) {
       if (c.dead || Math.hypot(ax - c.x, ay - c.y) > 24) continue;
       did = true;
       c.hp -= 20;
@@ -372,10 +466,13 @@
       move(c, player.fx * 12, player.fy * 12, 6);
       if (c.hp <= 0) {
         c.dead = true;
-        c.respawn = 20;
-        player.score += 20;
+        c.respawn = RESPAWN;
+        const reward = c.human ? 15 : 20;
+        player.score += reward;
         burst(c.x, c.y, '#ffd166', 16, 120);
-        showMsg(t('catDown', { name: t(c.nameKey) }));
+        showMsg(t('catDown', { name: t(c.nameKey), n: reward }));
+      } else if (c.human) {
+        showMsg(t('humanHit', { name: t(c.nameKey) }));
       } else {
         showMsg(t('catHiss', { name: t(c.nameKey) }));
       }
@@ -418,13 +515,13 @@
   function doPaint() {
     const px = player.x + player.fx * 22, py = player.y + player.fy * 22;
     const tag = Math.floor(Math.random() * I18N.ru.tags.length);
-    const color = SPRAY[Math.floor(Math.random() * SPRAY.length)];
+    const color = rnd(SPRAY);
     cur.marks.push({ x: px, y: py, tag, color, rot: (Math.random() - 0.5) * 0.5 });
     if (cur.marks.length > 60) cur.marks.shift();
     showMsg(t('wrote', { text: I18N[lang].tags[tag] }));
   }
 
-  // Возвращает true, если мир сменился (тогда кошки в этом кадре не двигаем)
+  // Возвращает true, если мир сменился (тогда NPC в этом кадре не двигаем)
   function updatePlayer(dt) {
     const k = (c) => keys.has(c);
     let ix = (k('KeyD') || k('ArrowRight') ? 1 : 0) - (k('KeyA') || k('ArrowLeft') ? 1 : 0) + joy.x;
@@ -461,19 +558,25 @@
     return false;
   }
 
-  // ---------- Кошки-NPC ----------
-  function reviveCat(c) {
+  // ---------- NPC: коты и прохожие ----------
+  function reviveNpc(c) {
     c.dead = false;
     c.hp = c.maxHp;
-    c.x = c.homeX;
-    c.y = c.homeY;
+    if (c.human && cur.spawnTiles) {
+      const p = rnd(cur.spawnTiles);
+      c.x = p.tx * TS + TS / 2;
+      c.y = p.ty * TS + TS / 2;
+    } else {
+      c.x = c.homeX;
+      c.y = c.homeY;
+    }
   }
 
-  function updateCats(dt) {
-    for (const c of cur.cats) {
+  function updateNpcs(dt) {
+    for (const c of cur.npcs) {
       if (c.dead) {
         c.respawn -= dt;
-        if (c.respawn <= 0) reviveCat(c);
+        if (c.respawn <= 0) reviveNpc(c);
         continue;
       }
       c.cd -= dt;
@@ -495,9 +598,9 @@
         }
       } else if (c.flee > 0) {
         mx = -dx / d; my = -dy / d;
-        sp = 110;
+        sp = c.human ? 95 : 110;
       } else {
-        // бродит вокруг своего дома
+        // блуждание; коты держатся возле своего дома
         c.wanderT -= dt;
         if (c.wanderT <= 0) {
           c.wanderT = 1 + Math.random() * 2.5;
@@ -506,12 +609,14 @@
           c.wdx = Math.cos(a) * s;
           c.wdy = Math.sin(a) * s;
         }
-        mx = c.wdx; my = c.wdy; sp = 25;
-        const hd = Math.hypot(c.x - c.homeX, c.y - c.homeY) || 1;
-        if (hd > 96) {
-          mx = (c.homeX - c.x) / hd;
-          my = (c.homeY - c.y) / hd;
-          sp = 40;
+        mx = c.wdx; my = c.wdy; sp = c.human ? 28 : 25;
+        if (c.anchor) {
+          const hd = Math.hypot(c.x - c.homeX, c.y - c.homeY) || 1;
+          if (hd > c.anchor) {
+            mx = (c.homeX - c.x) / hd;
+            my = (c.homeY - c.y) / hd;
+            sp = 40;
+          }
         }
       }
 
@@ -540,7 +645,7 @@
   }
 
   function updateHud() {
-    hudMap.textContent = t(cur.def.nameKey);
+    hudMap.textContent = mapName(cur.def);
     hudHp.textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
     hudScore.textContent = `${player.score}`;
   }
@@ -548,7 +653,7 @@
   function update(dt) {
     if (screen !== 'game') return;
     const changed = updatePlayer(dt);
-    if (!changed) updateCats(dt);
+    if (!changed) updateNpcs(dt);
     if (player.hp <= 0) onPlayerDown();
     updateParticles(dt);
     updateHud();
@@ -611,65 +716,108 @@
     }
   }
 
-  // ---------- Текстуры (рисуем процедурно, без картинок) ----------
+  // ---------- Текстуры ----------
   const rand = (n) => Math.random() * n;
 
-  function speckle(g, color, n) {
+  function speckle(g, color, n, size = 2) {
     g.fillStyle = color;
-    for (let i = 0; i < n; i++) g.fillRect(rand(S), rand(S), 2, 2);
+    for (let i = 0; i < n; i++) g.fillRect(rand(S), rand(S), size, size);
   }
   function fillAll(g, color) {
     g.fillStyle = color;
     g.fillRect(0, 0, S, S);
   }
-  function grass(g) {
-    fillAll(g, '#6aa84f');
-    speckle(g, 'rgba(40,90,30,.35)', 30);
-    speckle(g, 'rgba(170,230,120,.3)', 14);
+  function blade(g, x, y, color) {
+    g.strokeStyle = color;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x + (Math.random() - 0.5) * 3, y - 3 - Math.random() * 2);
+    g.stroke();
   }
-  function road(g) {
-    fillAll(g, '#3d4150');
-    speckle(g, '#4a4f5c', 40);
-    speckle(g, '#2c303a', 25);
+  function grass(g, flowers) {
+    fillAll(g, '#6aa84f');
+    // два слоя травы разного тона для объёма
+    speckle(g, 'rgba(40,90,30,.35)', 34);
+    speckle(g, 'rgba(170,230,120,.28)', 18);
+    for (let i = 0; i < 26; i++) blade(g, rand(S), rand(S), Math.random() < 0.5 ? '#4e8a3a' : '#8fd06a');
+    if (flowers) {
+      for (let i = 0; i < 4; i++) {
+        g.fillStyle = rnd(['#ffffff', '#ffd166', '#ff8fa3']);
+        g.beginPath(); g.arc(rand(S), rand(S), 1.6, 0, Math.PI * 2); g.fill();
+      }
+    }
+  }
+  function road(g, variant) {
+    fillAll(g, '#3a3e4a');
+    speckle(g, '#474c59', 46);
+    speckle(g, '#2a2e38', 30);
+    // тонкие следы от шин
+    g.strokeStyle = 'rgba(0,0,0,.18)';
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(rand(S), 0); g.lineTo(rand(S), S); g.stroke();
+    // разметка: пунктир по центру полосы
+    g.fillStyle = '#f5d142';
+    if (variant.includes('V')) {
+      for (let y = 0; y < S; y += 8) g.fillRect(30, y + 1, 2, 4);
+    }
+    if (variant.includes('H')) {
+      for (let x = 0; x < S; x += 8) g.fillRect(x + 1, 30, 4, 2);
+    }
   }
   function sidewalk(g) {
-    fillAll(g, '#cfc9bd');
+    fillAll(g, '#d3cdc0');
+    // плиты
     g.strokeStyle = '#a9a295';
     g.lineWidth = 1;
     g.strokeRect(0.5, 0.5, S - 1, S - 1);
-    speckle(g, 'rgba(0,0,0,.06)', 10);
+    g.beginPath(); g.moveTo(16.5, 0); g.lineTo(16.5, S); g.stroke();
+    speckle(g, 'rgba(0,0,0,.06)', 12);
+    speckle(g, 'rgba(255,255,255,.25)', 6);
   }
   function fence(g) {
-    grass(g);
-    g.fillStyle = '#a0703f';
+    grass(g, false);
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(2, 2, S - 2, S - 2);
+    g.fillStyle = '#b07b45';
     for (let i = 0; i < 4; i++) g.fillRect(i * 8 + 1, 0, 6, S);
     g.fillStyle = '#6e4a25';
     g.fillRect(0, 9, S, 3);
     g.fillRect(0, 20, S, 3);
+    g.fillStyle = 'rgba(255,255,255,.15)';
+    for (let i = 0; i < 4; i++) g.fillRect(i * 8 + 1, 0, 1, S);
   }
   function bush(g) {
-    grass(g);
-    const blobs = [[10, 10, 9, '#2f6b2f'], [22, 11, 8, '#3c8a3c'], [13, 22, 9, '#2a5f2a'], [23, 23, 7, '#367d36']];
+    grass(g, false);
+    g.fillStyle = 'rgba(0,0,0,.2)';
+    g.beginPath(); g.arc(17, 18, 13, 0, Math.PI * 2); g.fill();
+    const blobs = [[10, 10, 9, '#2f6b2f'], [22, 11, 8, '#3c8a3c'], [13, 22, 9, '#2a5f2a'], [23, 23, 7, '#367d36'], [16, 16, 4, '#4f9c4a']];
     for (const [x, y, r, c] of blobs) {
       g.fillStyle = c;
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
     }
-    g.fillStyle = 'rgba(255,255,255,.12)';
+    g.fillStyle = 'rgba(255,255,255,.18)';
     g.beginPath(); g.arc(8, 8, 3, 0, Math.PI * 2); g.fill();
   }
-  function brick(g) {
-    fillAll(g, '#9b4d32');
-    g.strokeStyle = 'rgba(230,205,180,.8)';
+  // Крыша: черепица, тень и светлый край там, где нет соседней стены.
+  // mask: бит 1 — стена сверху, 2 — справа, 4 — снизу, 8 — слева
+  function roof(g, mask) {
+    fillAll(g, '#8c4a38');
+    g.strokeStyle = 'rgba(60,25,15,.45)';
     g.lineWidth = 1;
-    for (let r = 0; r < 4; r++) {
-      const y = r * 8;
-      g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(S, y + 0.5); g.stroke();
-      const off = r % 2 ? 0 : 8;
-      for (let x = off; x <= S; x += 16) {
-        g.beginPath(); g.moveTo(x + 0.5, y); g.lineTo(x + 0.5, y + 8); g.stroke();
+    for (let r = 0; r < 8; r++) {
+      const y = r * 4 + 0.5;
+      g.beginPath(); g.moveTo(0, y); g.lineTo(S, y); g.stroke();
+      const off = r % 2 ? 0 : 4;
+      for (let x = off; x <= S; x += 8) {
+        g.beginPath(); g.moveTo(x + 0.5, y); g.lineTo(x + 0.5, y + 4); g.stroke();
       }
     }
-    speckle(g, 'rgba(0,0,0,.12)', 20);
+    speckle(g, 'rgba(255,220,190,.12)', 10);
+    // края крыши (там, где нет соседней стены)
+    if (!(mask & 1)) { g.fillStyle = 'rgba(255,240,220,.35)'; g.fillRect(0, 0, S, 2); }
+    if (!(mask & 4)) { g.fillStyle = 'rgba(40,15,8,.55)'; g.fillRect(0, S - 3, S, 3); }
+    if (!(mask & 2)) { g.fillStyle = 'rgba(40,15,8,.45)'; g.fillRect(S - 3, 0, 3, S); }
+    if (!(mask & 8)) { g.fillStyle = 'rgba(255,240,220,.2)'; g.fillRect(0, 0, 2, S); }
   }
   function wallpaper(g) {
     fillAll(g, '#e9dcc3');
@@ -677,6 +825,8 @@
     for (let x = 0; x < S; x += 8) g.fillRect(x + 3, 0, 2, S);
     g.fillStyle = '#b9a27c';
     g.fillRect(0, 0, S, 4);
+    g.fillStyle = 'rgba(0,0,0,.08)';
+    g.fillRect(0, S - 3, S, 3);
   }
   function wood(g) {
     fillAll(g, '#b07c4a');
@@ -684,6 +834,8 @@
       g.fillStyle = '#8c5f36';
       g.fillRect(0, y, S, 1);
       g.fillRect(((y / 8) % 2) ? 12 : 4, y, 1, 8);
+      g.fillStyle = 'rgba(255,220,170,.1)';
+      g.fillRect(0, y + 1, S, 1);
     }
     speckle(g, 'rgba(60,30,10,.18)', 16);
   }
@@ -692,13 +844,14 @@
     g.fillStyle = '#a33b3b'; g.fillRect(1, 1, S - 2, S - 2);
     g.fillStyle = '#d9a441'; g.fillRect(4, 4, S - 8, S - 8);
     g.fillStyle = '#a33b3b'; g.fillRect(8, 8, S - 16, S - 16);
+    g.fillStyle = '#d9a441'; g.fillRect(14, 14, 4, 4);
   }
   function table(g) {
     wood(g);
     g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(4, 5, 26, 26);
     g.fillStyle = '#6b4120'; g.fillRect(2, 2, 26, 26);
     g.fillStyle = '#8a5a2e'; g.fillRect(5, 5, 20, 20);
-    g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(5, 5, 20, 3);
+    g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(5, 5, 20, 3);
   }
   function sofa(g) {
     wood(g);
@@ -706,6 +859,7 @@
     g.fillStyle = '#3f6f9e'; g.fillRect(2, 3, 28, 26);
     g.fillStyle = '#2d5378'; g.fillRect(2, 3, 28, 7);
     g.fillStyle = '#4f85b8'; g.fillRect(5, 12, 9, 15); g.fillRect(18, 12, 9, 15);
+    g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(5, 12, 9, 3); g.fillRect(18, 12, 9, 3);
   }
   function bed(g) {
     wood(g);
@@ -718,25 +872,29 @@
     wood(g);
     g.fillStyle = '#b9c0c8'; g.fillRect(0, 0, S, S);
     g.fillStyle = '#9aa3ad'; g.fillRect(0, 0, S, 3);
+    g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(0, 3, S, 2);
     g.fillStyle = '#6f7882';
     g.beginPath(); g.arc(16, 18, 5, 0, Math.PI * 2); g.fill();
   }
   function door(g) {
-    g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(6, 3, 22, 28);
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(6, 3, 22, 28);
     g.fillStyle = '#6b3f1f'; g.fillRect(5, 2, 22, 28);
     g.fillStyle = '#82502a'; g.fillRect(8, 5, 16, 10); g.fillRect(8, 17, 16, 10);
     g.fillStyle = '#f2c14e';
     g.beginPath(); g.arc(22, 16, 2, 0, Math.PI * 2); g.fill();
   }
 
-  function paintTile(g, kind, ch) {
+  // variant — строка-признак (маска соседей или разметка дороги)
+  function paintTile(g, kind, ch, variant) {
     switch (ch) {
-      case 'g': return grass(g);
-      case 'r': return road(g);
+      case 'g': return grass(g, variant === 'f');
+      case 'r': return road(g, variant);
       case 's': return sidewalk(g);
       case 'f': return fence(g);
       case 'x': return bush(g);
-      case '#': return kind === 'out' ? brick(g) : wallpaper(g);
+      case '#':
+        if (kind === 'out') return roof(g, Number(variant) || 0);
+        return wallpaper(g);
       case '.': return wood(g);
       case 'R': return rug(g);
       case 'T': return table(g);
@@ -744,23 +902,42 @@
       case 'B': return bed(g);
       case 'K': return kitchen(g);
       case 'D':
-        if (kind === 'out') brick(g); else wallpaper(g);
+        if (kind === 'out') roof(g, Number(variant) || 0); else wallpaper(g);
         return door(g);
       default: return fillAll(g, '#000');
     }
   }
 
   const texCache = new Map();
-  function getTex(kind, ch) {
-    const key = kind + ch;
+  function getTex(kind, ch, variant) {
+    const key = kind + ch + ':' + variant;
     let c = texCache.get(key);
     if (!c) {
       c = document.createElement('canvas');
       c.width = c.height = TS;
-      paintTile(c.getContext('2d'), kind, ch);
+      paintTile(c.getContext('2d'), kind, ch, variant);
       texCache.set(key, c);
     }
     return c;
+  }
+
+  // Признак тайла: для крыш — соседние стены, для дорог — разметка, для травы — цветы
+  function variantAt(tx, ty, ch) {
+    if (ch === '#' || ch === 'D') {
+      const wall = (x, y) => tileAt(x, y) === '#' ? 1 : 0;
+      return String((wall(tx, ty - 1) ? 1 : 0) | (wall(tx + 1, ty) ? 2 : 0) |
+                    (wall(tx, ty + 1) ? 4 : 0) | (wall(tx - 1, ty) ? 8 : 0));
+    }
+    if (ch === 'r' && cur.def.kind === 'out') {
+      const mx = tx % 14, my = ty % 12;
+      const inV = mx >= 5 && mx <= 8, inH = my >= 4 && my <= 7;
+      let v = '';
+      if (mx === 6 && !inH) v += 'V';
+      if (my === 5 && !inV) v += 'H';
+      return v;
+    }
+    if (ch === 'g') return ((tx * 31 + ty * 17) % 13 === 0) ? 'f' : '';
+    return '';
   }
 
   // ---------- Отрисовка мира ----------
@@ -775,6 +952,7 @@
         ctx.beginPath(); ctx.ellipse(0, 1, 6, 7, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#2c5fa8'; ctx.fillRect(-2.5, -8, 5, 4);
         ctx.fillStyle = '#8fc1ff'; ctx.fillRect(-3, -2, 2, 5);
+        ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(-1, -3, 1.5, 2);
         break;
       case 'plate':
         ctx.fillStyle = 'rgba(0,0,0,.2)';
@@ -826,11 +1004,14 @@
     }
   }
 
+  function drawShadow(x, y, rx, ry) {
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
   function drawCat(c, time, isPlayer) {
     const x = c.x, y = c.y;
-
-    ctx.fillStyle = 'rgba(0,0,0,.22)';
-    ctx.beginPath(); ctx.ellipse(x, y + 6, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+    drawShadow(x, y + 6, 10, 4);
 
     ctx.save();
     ctx.translate(x, y);
@@ -848,13 +1029,16 @@
     ctx.stroke();
 
     // лапы
-    ctx.fillStyle = col;
+    ctx.fillStyle = shade(col, -25);
     for (const [lx, ly, s] of [[-4, -6, 1], [-4, 6, -1], [4, -6, -1], [4, 6, 1]]) {
       ctx.beginPath(); ctx.ellipse(lx, ly + w * s * 1.5, 2.6, 2, 0, 0, Math.PI * 2); ctx.fill();
     }
 
-    // тело
+    // тело с тенью по краю и светлым бликом
+    ctx.fillStyle = col;
     ctx.beginPath(); ctx.ellipse(0, 0, 9, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.14)';
+    ctx.beginPath(); ctx.ellipse(-1, -2, 5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
     if (c.stripes) {
       ctx.strokeStyle = 'rgba(0,0,0,.35)';
       ctx.lineWidth = 1.6;
@@ -871,13 +1055,21 @@
     ctx.beginPath(); ctx.arc(9, 0, 6, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.moveTo(5, -4); ctx.lineTo(7, -10); ctx.lineTo(10, -4.5); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(5, 4); ctx.lineTo(7, 10); ctx.lineTo(10, 4.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = shade(col, -35);
+    ctx.beginPath(); ctx.moveTo(6, -3); ctx.lineTo(7.2, -7); ctx.lineTo(9, -3.6); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(6, 3); ctx.lineTo(7.2, 7); ctx.lineTo(9, 3.6); ctx.closePath(); ctx.fill();
 
-    // глаза и нос
-    ctx.fillStyle = isPlayer ? '#2ecc71' : '#111';
-    ctx.beginPath(); ctx.arc(12.5, -2.2, 1.4, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(12.5, 2.2, 1.4, 0, Math.PI * 2); ctx.fill();
+    // глаза с бликами и нос
+    ctx.fillStyle = isPlayer ? '#2ecc71' : '#f5c542';
+    ctx.beginPath(); ctx.arc(12.5, -2.2, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12.5, 2.2, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(12.8, -2.2, 0.9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(12.8, 2.2, 0.9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(13.3, -2.8, 0.5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#ff8fa3';
-    ctx.beginPath(); ctx.arc(14.6, 0, 0.9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(14.8, 0, 0.9, 0, Math.PI * 2); ctx.fill();
 
     // взмах лапой
     if (c.atkT > 0) {
@@ -887,7 +1079,55 @@
     }
     ctx.restore();
 
-    // имя и полоска здоровья
+    drawNameAndHp(c, x, y, isPlayer);
+  }
+
+  function drawHuman(c, time) {
+    const x = c.x, y = c.y;
+    drawShadow(x, y + 5, 6, 3);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.atan2(c.fy, c.fx));
+    ctx.lineCap = 'round';
+    const sw = c.moving ? Math.sin(time * 12) : 0;
+    const hit = c.hit > 0;
+
+    // ноги
+    ctx.strokeStyle = '#2d3446';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-1, -2.5); ctx.lineTo(-2 + sw * 2, -6);
+    ctx.moveTo(-1, 2.5); ctx.lineTo(-2 - sw * 2, 6);
+    ctx.stroke();
+
+    // руки
+    ctx.strokeStyle = hit ? '#ff8a80' : c.skin;
+    ctx.beginPath();
+    ctx.moveTo(1, -5); ctx.lineTo(1 - sw * 2, -7.5);
+    ctx.moveTo(1, 5); ctx.lineTo(1 + sw * 2, 7.5);
+    ctx.stroke();
+
+    // торс
+    ctx.fillStyle = hit ? '#ff8a80' : c.shirt;
+    ctx.beginPath(); ctx.ellipse(0, 0, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.beginPath(); ctx.ellipse(-1, -1.5, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+
+    // голова: волосы сзади, лицо спереди
+    ctx.fillStyle = c.hair;
+    ctx.beginPath(); ctx.arc(1.5, 0, 4.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = c.skin;
+    ctx.beginPath(); ctx.ellipse(4, 0, 2.8, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(5.4, -1.2, 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(5.4, 1.2, 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    drawNameAndHp(c, x, y, false);
+  }
+
+  function drawNameAndHp(c, x, y, isPlayer) {
     const label = isPlayer ? t('you') : t(c.nameKey);
     ctx.font = 'bold 8px system-ui, sans-serif';
     ctx.textAlign = 'center';
@@ -905,6 +1145,14 @@
       ctx.fillStyle = isPlayer ? '#4caf50' : '#ef5350';
       ctx.fillRect(x - 10, y - 13, 20 * clamp(hp / mhp, 0, 1), 3);
     }
+  }
+
+  // осветление/затемнение цвета #rrggbb на amount (-100..100)
+  function shade(hex, amount) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = (v) => clamp(Math.round(v + (amount / 100) * 255), 0, 255);
+    const r = f((n >> 16) & 255), g = f((n >> 8) & 255), b = f(n & 255);
+    return `rgb(${r},${g},${b})`;
   }
 
   function drawParticles() {
@@ -935,23 +1183,39 @@
     const camY = mapH <= viewH ? (mapH - viewH) / 2 : clamp(player.y - viewH / 2, 0, mapH - viewH);
     ctx.setTransform(scale, 0, 0, scale, -camX * scale, -camY * scale);
 
-    for (let ty = 0; ty < cur.H; ty++) {
-      for (let tx = 0; tx < cur.W; tx++) {
-        ctx.drawImage(getTex(cur.def.kind, cur.grid[ty][tx]), tx * TS, ty * TS);
+    // рисуем только видимые тайлы
+    const tx0 = Math.max(0, Math.floor(camX / TS)), tx1 = Math.min(cur.W - 1, Math.ceil((camX + viewW) / TS));
+    const ty0 = Math.max(0, Math.floor(camY / TS)), ty1 = Math.min(cur.H - 1, Math.ceil((camY + viewH) / TS));
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const chr = cur.grid[ty][tx];
+        ctx.drawImage(getTex(cur.def.kind, chr, variantAt(tx, ty, chr)), tx * TS, ty * TS);
       }
     }
     for (const it of cur.items) if (!it.broken) drawItem(it);
     drawMarks(cur);
 
-    const list = cur.cats.filter(c => !c.dead);
+    const list = cur.npcs.filter(c => !c.dead);
     list.push(player);
     list.sort((a, b) => a.y - b.y);
-    for (const e of list) drawCat(e, time, e === player);
+    for (const e of list) {
+      if (e === player) drawCat(e, time, true);
+      else if (e.human) drawHuman(e, time);
+      else drawCat(e, time, false);
+    }
 
     drawParticles();
 
-    // джойстик — в экранных координатах
+    // виньетка: затемнённые края для объёма
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const vw = canvas.width / dpr, vh = canvas.height / dpr;
+    const grad = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.35, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,.35)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, vw, vh);
+
+    // джойстик — в экранных координатах
     if (screen === 'game' && joy.id !== null) {
       ctx.strokeStyle = 'rgba(255,255,255,.4)';
       ctx.lineWidth = 3;
@@ -997,8 +1261,7 @@
   // ---------- Ввод ----------
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
-      if (screen === 'game') setScreen('menu');
-      else if (screen === 'settings') setScreen('menu');
+      if (screen === 'game' || screen === 'settings') setScreen('menu');
       return;
     }
     if (screen !== 'game') return;
