@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <title>Кот-песочница</title>
+  <style>
+    :root { color-scheme: dark; --ui-bg: rgba(0,0,0,.45); --ui-text: #ffffff; }
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      background: #1d1f24; color: var(--ui-text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    #hud {
+      position: fixed; top: max(10px, env(safe-area-inset-top)); left: 10px;
+      background: var(--ui-bg); padding: 6px 10px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; pointer-events: none;
+    }
+    #msg {
+      position: fixed; top: 14%; left: 50%; transform: translateX(-50%);
+      max-width: 86%; text-align: center; background: rgba(0,0,0,.65);
+      padding: 8px 14px; border-radius: 12px; font-size: 15px;
+      opacity: 0; transition: opacity .25s; pointer-events: none;
+    }
+    #msg.show { opacity: 1; }
+    #controls {
+      position: fixed; right: 14px; bottom: max(18px, env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; gap: 12px; align-items: flex-end;
+    }
+    .row { display: flex; gap: 12px; }
+    .btn {
+      width: 64px; height: 64px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.5); background: rgba(255,255,255,.18);
+      color: var(--ui-text); font-size: 26px; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none;
+    }
+    .btn:active { background: rgba(255,255,255,.4); }
+    .btn.big { width: 84px; height: 84px; font-size: 34px; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="hud"></div>
+  <div id="msg"></div>
+  <div id="controls">
+    <div class="row">
+      <button id="bPaint" class="btn" aria-label="Писать">🖌️</button>
+      <button id="bAct" class="btn" aria-label="Действие">✋</button>
+    </div>
+    <button id="bAtk" class="btn big" aria-label="Атака">🐾</button>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
