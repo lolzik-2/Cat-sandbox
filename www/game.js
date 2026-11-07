@@ -1,17 +1,120 @@
 (() => {
   'use strict';
 
-  // ---------- Настройки ----------
+  // ---------- Языки ----------
+  const I18N = {
+    ru: {
+      title: 'Кот-песочница',
+      subtitle: 'Дом, улица и соседи',
+      play: 'Играть',
+      settings: 'Настройки',
+      language: 'Язык',
+      back: 'Назад',
+      langName: 'Русский',
+      menu: 'Меню',
+      paint: 'Писать',
+      act: 'Действие',
+      attack: 'Атака',
+      help: 'Ходи джойстиком слева · Атака · Действие · Писать (ПК: WASD, Пробел, E, G)',
+      map_street: 'Улица',
+      map_home: 'Твой дом',
+      map_murka: 'Дом Мурки',
+      map_bur: 'Дом Бурого',
+      cat_ginger: 'Рыжий',
+      cat_black: 'Чёрный Барсик',
+      cat_snow: 'Снежок',
+      cat_grey: 'Серый',
+      cat_murka: 'Мурка',
+      cat_bur: 'Бурый',
+      you: 'Ты',
+      item_vase: 'Ваза',
+      item_plate: 'Тарелка',
+      item_cup: 'Кружка',
+      item_bin: 'Урна',
+      broke: '{label} разбит(а)! +{n}',
+      catDown: '{name} убежал побитый! +20',
+      catHiss: '{name} шипит!',
+      scratch: '{name} царапает тебя! −{n}',
+      downMsg: 'Тебя побили… Ты очнулся дома. −10 очков',
+      slept: 'Ты выспался в кровати. Здоровье полное!',
+      scratched: 'Поточил когти о диван. +3',
+      fish: 'Пахнет рыбой. Кто-то оставил ужин…',
+      nothing: 'Тут не с чем взаимодействовать. Иди к кровати или дивану.',
+      wrote: 'Ты написал: «{text}»',
+      tags: ['MEOW', 'КОТ ТУТ', 'ЛАПКА', 'ХОЗЯИН ДОМА', 'мяу!', 'ТУТ БЫЛ Я', 'ЛУНА'],
+    },
+    en: {
+      title: 'Cat Sandbox',
+      subtitle: 'Home, street and neighbours',
+      play: 'Play',
+      settings: 'Settings',
+      language: 'Language',
+      back: 'Back',
+      langName: 'English',
+      menu: 'Menu',
+      paint: 'Paint',
+      act: 'Action',
+      attack: 'Attack',
+      help: 'Move with the joystick on the left · Attack · Action · Paint (PC: WASD, Space, E, G)',
+      map_street: 'Street',
+      map_home: 'Your home',
+      map_murka: "Murka's house",
+      map_bur: "Brown's house",
+      cat_ginger: 'Ginger',
+      cat_black: 'Black Barsik',
+      cat_snow: 'Snowball',
+      cat_grey: 'Grey',
+      cat_murka: 'Murka',
+      cat_bur: 'Brown',
+      you: 'You',
+      item_vase: 'Vase',
+      item_plate: 'Plate',
+      item_cup: 'Mug',
+      item_bin: 'Bin',
+      broke: '{label} broken! +{n}',
+      catDown: '{name} ran off beaten! +20',
+      catHiss: '{name} hisses!',
+      scratch: '{name} scratches you! −{n}',
+      downMsg: 'You got beaten up… You woke up at home. −10 points',
+      slept: 'You slept in the bed. Health restored!',
+      scratched: 'Scratched the sofa. +3',
+      fish: 'Smells like fish. Someone left dinner…',
+      nothing: 'Nothing to interact with here. Try the bed or the sofa.',
+      wrote: 'You wrote: «{text}»',
+      tags: ['MEOW', 'CAT HERE', 'PAW', 'HOUSE OWNER', 'mrrr!', 'I WAS HERE', 'LUNA'],
+    },
+  };
+
+  let lang = 'ru';
+  try {
+    const saved = localStorage.getItem('catLang');
+    if (saved === 'ru' || saved === 'en') lang = saved;
+  } catch (e) { /* хранилище недоступно — оставляем язык по умолчанию */ }
+
+  function t(key, vars) {
+    let s = (I18N[lang][key] ?? I18N.en[key] ?? key);
+    if (vars) for (const k in vars) s = s.replace('{' + k + '}', vars[k]);
+    return s;
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.title = t('title');
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+    document.getElementById('bLang').textContent = I18N[lang].langName;
+  }
+
+  // ---------- Настройки игры ----------
   const TS = 32;                                   // размер тайла в мировых пикселях
   const S = TS;
   const SOLID = new Set(['#', 'x', 'f', 'T', 'S', 'B', 'K']);
   const ITEM_INFO = {
-    vase:  { score: 10, label: 'Ваза',    color: '#3f7fd1' },
-    plate: { score: 5,  label: 'Тарелка', color: '#f4f4f4' },
-    cup:   { score: 3,  label: 'Кружка',  color: '#fafafa' },
-    bin:   { score: 8,  label: 'Урна',    color: '#7d848e' },
+    vase:  { score: 10, labelKey: 'item_vase',  color: '#3f7fd1' },
+    plate: { score: 5,  labelKey: 'item_plate', color: '#f4f4f4' },
+    cup:   { score: 3,  labelKey: 'item_cup',   color: '#fafafa' },
+    bin:   { score: 8,  labelKey: 'item_bin',   color: '#7d848e' },
   };
-  const TAGS = ['MEOW', 'КОТ ТУТ', '🐾', 'ХОЗЯИН ДОМА', 'мяу!', 'ТУТ БЫЛ Я', 'ЛУНА'];
   const SPRAY = ['#ff4d6d', '#ffd166', '#06d6a0', '#4cc9f0', '#f72585', '#ffffff'];
 
   // ---------- Карты ----------
@@ -20,7 +123,7 @@
   //          . пол, R ковёр, T стол, S диван, B кровать, K кухня, D дверь
   const MAP_DEFS = {
     street: {
-      name: 'Улица', kind: 'out',
+      nameKey: 'map_street', kind: 'out',
       rows: [
         'xxxxxxxxxxxxxxxxxxxxxxxx',
         'xggggggggggggggggggggggx',
@@ -48,15 +151,15 @@
         { kind: 'vase', tx: 9, ty: 9 },
       ],
       cats: [
-        { name: 'Рыжий', color: '#e8943a', stripes: true, aggressive: true, tx: 8, ty: 8 },
-        { name: 'Чёрный Барсик', color: '#2b2b33', aggressive: true, tx: 20, ty: 8 },
-        { name: 'Снежок', color: '#f2f2f2', aggressive: false, tx: 14, ty: 11 },
-        { name: 'Серый', color: '#9a9aa6', stripes: true, aggressive: false, tx: 3, ty: 12 },
+        { nameKey: 'cat_ginger', color: '#e8943a', stripes: true, aggressive: true, tx: 8, ty: 8 },
+        { nameKey: 'cat_black', color: '#2b2b33', aggressive: true, tx: 20, ty: 8 },
+        { nameKey: 'cat_snow', color: '#f2f2f2', aggressive: false, tx: 14, ty: 11 },
+        { nameKey: 'cat_grey', color: '#9a9aa6', stripes: true, aggressive: false, tx: 3, ty: 12 },
       ],
     },
 
     home: {
-      name: 'Твой дом', kind: 'in',
+      nameKey: 'map_home', kind: 'in',
       rows: [
         '############',
         '#..........#',
@@ -78,7 +181,7 @@
     },
 
     murka: {
-      name: 'Дом Мурки', kind: 'in',
+      nameKey: 'map_murka', kind: 'in',
       rows: [
         '############',
         '#..........#',
@@ -97,12 +200,12 @@
         { kind: 'cup', tx: 9, ty: 6 },
       ],
       cats: [
-        { name: 'Мурка', color: '#c9b5a0', stripes: true, aggressive: false, tx: 8, ty: 4 },
+        { nameKey: 'cat_murka', color: '#c9b5a0', stripes: true, aggressive: false, tx: 8, ty: 4 },
       ],
     },
 
     bur: {
-      name: 'Дом Бурого', kind: 'in',
+      nameKey: 'map_bur', kind: 'in',
       rows: [
         '############',
         '#..........#',
@@ -122,7 +225,7 @@
         { kind: 'cup', tx: 5, ty: 5 },
       ],
       cats: [
-        { name: 'Бурый', color: '#7a4a22', aggressive: true, big: true, tx: 8, ty: 4 },
+        { nameKey: 'cat_bur', color: '#7a4a22', aggressive: true, big: true, tx: 8, ty: 4 },
       ],
     },
   };
@@ -130,12 +233,13 @@
   // ---------- Состояние мира ----------
   const worlds = {};
   let cur = null;
+  let screen = 'menu';   // menu | settings | game
 
   function makeCat(c) {
-    const x = c.tx * TS + TS / 2, y = c.ty * TS +TS /2;
+    const x = c.tx * TS + TS / 2, y = c.ty * TS + TS / 2;
     const maxHp = c.big ? 100 : 60;
     return {
-      name: c.name, color: c.color, stripes: !!c.stripes, aggressive: !!c.aggressive,
+      nameKey: c.nameKey, color: c.color, stripes: !!c.stripes, aggressive: !!c.aggressive,
       big: !!c.big, maxHp, hp: maxHp,
       x, y, homeX: x, homeY: y,
       fx: 1, fy: 0, moving: false,
@@ -166,7 +270,7 @@
     x: 0, y: 0, fx: 0, fy: 1, moving: false,
     hp: 100, maxHp: 100, score: 0,
     cd: 0, atkT: 0, hit: 0, regenT: 0,
-    color: '#8e8ea0', stripes: true, name: 'Ты',
+    color: '#8e8ea0', stripes: true,
   };
 
   const particles = [];
@@ -176,7 +280,9 @@
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const hudEl = document.getElementById('hud');
+  const hudMap = document.getElementById('hudMap');
+  const hudHp = document.getElementById('hudHp');
+  const hudScore = document.getElementById('hudScore');
   const msgEl = document.getElementById('msg');
   let dpr = 1;
   let msgTimer = 0;
@@ -230,23 +336,23 @@
     player.x = tx * TS + TS / 2;
     player.y = ty * TS + TS / 2;
     particles.length = 0;
-    showMsg(`📍 ${cur.def.name}`);
+    showMsg(t(cur.def.nameKey));
   }
 
   // ---------- Игрок ----------
-  function hurtPlayer(n, who) {
+  function hurtPlayer(n, nameKey) {
     player.hp -= n;
     player.hit = 0.25;
     player.regenT = 4;
     burst(player.x, player.y, '#ff5252', 5, 60);
-    showMsg(`${who} царапает тебя! −${n}`);
+    showMsg(t('scratch', { name: t(nameKey), n }));
   }
 
   function onPlayerDown() {
     player.score = Math.max(0, player.score - 10);
     player.hp = Math.round(player.maxHp * 0.5);
     loadWorld('home', 2, 6);
-    showMsg('Тебя побили… Ты очнулся дома. −10 очков');
+    showMsg(t('downMsg'));
   }
 
   function doAttack() {
@@ -269,9 +375,9 @@
         c.respawn = 20;
         player.score += 20;
         burst(c.x, c.y, '#ffd166', 16, 120);
-        showMsg(`${c.name} убежал побитый! +20`);
+        showMsg(t('catDown', { name: t(c.nameKey) }));
       } else {
-        showMsg(`${c.name} шипит!`);
+        showMsg(t('catHiss', { name: t(c.nameKey) }));
       }
     }
 
@@ -282,7 +388,7 @@
       const info = ITEM_INFO[it.kind];
       player.score += info.score;
       burst(it.cx, it.cy, info.color, 12, 110);
-      showMsg(`${info.label} разбит(а)! +${info.score}`);
+      showMsg(t('broke', { label: t(info.labelKey), n: info.score }));
       break;
     }
 
@@ -297,25 +403,25 @@
     }
     if (near.has('B')) {
       player.hp = player.maxHp;
-      showMsg('Ты выспался в кровати. Здоровье полное!');
+      showMsg(t('slept'));
     } else if (near.has('S')) {
       player.score += 3;
       burst(player.x, player.y - 8, '#9fd3ff', 6, 50);
-      showMsg('Поточил когти о диван. +3');
+      showMsg(t('scratched'));
     } else if (near.has('K')) {
-      showMsg('Пахнет рыбой. Кто-то оставил ужин…');
+      showMsg(t('fish'));
     } else {
-      showMsg('Тут не с чем взаимодействовать. Иди к кровати или дивану.');
+      showMsg(t('nothing'));
     }
   }
 
   function doPaint() {
     const px = player.x + player.fx * 22, py = player.y + player.fy * 22;
-    const text = TAGS[Math.floor(Math.random() * TAGS.length)];
+    const tag = Math.floor(Math.random() * I18N.ru.tags.length);
     const color = SPRAY[Math.floor(Math.random() * SPRAY.length)];
-    cur.marks.push({ x: px, y: py, text, color, rot: (Math.random() - 0.5) * 0.5 });
+    cur.marks.push({ x: px, y: py, tag, color, rot: (Math.random() - 0.5) * 0.5 });
     if (cur.marks.length > 60) cur.marks.shift();
-    showMsg(`Ты написал: «${text}»`);
+    showMsg(t('wrote', { text: I18N[lang].tags[tag] }));
   }
 
   // Возвращает true, если мир сменился (тогда кошки в этом кадре не двигаем)
@@ -385,7 +491,7 @@
         if (d < 22 && c.cd <= 0) {
           c.cd = 1.1;
           c.atkT = 0.3;
-          hurtPlayer(c.big ? 10 : 6, c.name);
+          hurtPlayer(c.big ? 10 : 6, c.nameKey);
         }
       } else if (c.flee > 0) {
         mx = -dx / d; my = -dy / d;
@@ -433,12 +539,76 @@
     }
   }
 
+  function updateHud() {
+    hudMap.textContent = t(cur.def.nameKey);
+    hudHp.textContent = `${Math.ceil(player.hp)}/${player.maxHp}`;
+    hudScore.textContent = `${player.score}`;
+  }
+
   function update(dt) {
+    if (screen !== 'game') return;
     const changed = updatePlayer(dt);
     if (!changed) updateCats(dt);
     if (player.hp <= 0) onPlayerDown();
     updateParticles(dt);
-    hudEl.textContent = `${cur.def.name} · ❤ ${Math.ceil(player.hp)}/${player.maxHp} · ⭐ ${player.score}`;
+    updateHud();
+  }
+
+  // ---------- Иконки (рисуем в коде, без эмодзи) ----------
+  function drawIcon(c, kind) {
+    c.width = 64;
+    c.height = 64;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, 64, 64);
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = '#ffffff';
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    switch (kind) {
+      case 'paw':
+        g.beginPath(); g.ellipse(32, 42, 15, 13, 0, 0, Math.PI * 2); g.fill();
+        for (const [x, y] of [[13, 26], [25, 14], [39, 14], [51, 26]]) {
+          g.beginPath(); g.ellipse(x, y, 6.5, 8, 0, 0, Math.PI * 2); g.fill();
+        }
+        break;
+      case 'hand':
+        g.lineWidth = 7;
+        for (let i = 0; i < 4; i++) {
+          const x = 20 + i * 8;
+          g.beginPath(); g.moveTo(x, 32); g.lineTo(x, 16); g.stroke();
+        }
+        g.beginPath(); g.ellipse(33, 42, 17, 14, 0, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.moveTo(16, 40); g.lineTo(8, 30); g.stroke();
+        break;
+      case 'brush':
+        g.lineWidth = 6;
+        g.beginPath(); g.moveTo(50, 12); g.lineTo(28, 36); g.stroke();
+        g.beginPath(); g.ellipse(24, 42, 7, 6, -0.8, 0, Math.PI * 2); g.fill();
+        break;
+      case 'heart':
+        g.beginPath();
+        g.moveTo(32, 54);
+        g.bezierCurveTo(8, 38, 6, 22, 18, 16);
+        g.bezierCurveTo(26, 12, 32, 20, 32, 24);
+        g.bezierCurveTo(32, 20, 38, 12, 46, 16);
+        g.bezierCurveTo(58, 22, 56, 38, 32, 54);
+        g.fill();
+        break;
+      case 'star':
+        g.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const r = i % 2 ? 11 : 26;
+          const a = -Math.PI / 2 + i * Math.PI / 5;
+          const px = 32 + Math.cos(a) * r, py = 34 + Math.sin(a) * r;
+          if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+        }
+        g.closePath(); g.fill();
+        break;
+      case 'menu':
+        g.lineWidth = 6;
+        for (const y of [20, 32, 44]) { g.beginPath(); g.moveTo(14, y); g.lineTo(50, y); g.stroke(); }
+        break;
+    }
   }
 
   // ---------- Текстуры (рисуем процедурно, без картинок) ----------
@@ -593,7 +763,7 @@
     return c;
   }
 
-  // ---------- Отрисовка ----------
+  // ---------- Отрисовка мира ----------
   function drawItem(it) {
     ctx.save();
     ctx.translate(it.cx, it.cy);
@@ -643,19 +813,20 @@
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
     for (const m of world.marks) {
+      const text = I18N[lang].tags[m.tag];
       ctx.save();
       ctx.translate(m.x, m.y);
       ctx.rotate(m.rot);
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(0,0,0,.7)';
-      ctx.strokeText(m.text, 0, 0);
+      ctx.strokeText(text, 0, 0);
       ctx.fillStyle = m.color;
-      ctx.fillText(m.text, 0, 0);
+      ctx.fillText(text, 0, 0);
       ctx.restore();
     }
   }
 
-  function drawCat(c, t, isPlayer) {
+  function drawCat(c, time, isPlayer) {
     const x = c.x, y = c.y;
 
     ctx.fillStyle = 'rgba(0,0,0,.22)';
@@ -666,14 +837,14 @@
     ctx.rotate(Math.atan2(c.fy, c.fx));
     ctx.lineCap = 'round';
     const col = c.hit > 0 ? '#ff8a80' : c.color;
-    const w = c.moving ? Math.sin(t * 16) : 0;
+    const w = c.moving ? Math.sin(time * 16) : 0;
 
     // хвост
     ctx.strokeStyle = col;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(-7, 0);
-    ctx.quadraticCurveTo(-15, Math.sin(t * 5) * 4, -19, -6 + Math.sin(t * 5) * 3);
+    ctx.quadraticCurveTo(-15, Math.sin(time * 5) * 4, -19, -6 + Math.sin(time * 5) * 3);
     ctx.stroke();
 
     // лапы
@@ -717,12 +888,12 @@
     ctx.restore();
 
     // имя и полоска здоровья
+    const label = isPlayer ? t('you') : t(c.nameKey);
     ctx.font = 'bold 8px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(0,0,0,.7)';
-    const label = isPlayer ? 'Ты' : c.name;
     ctx.strokeText(label, x, y - 14);
     ctx.fillStyle = '#fff';
     ctx.fillText(label, x, y - 14);
@@ -751,7 +922,7 @@
     return css * dpr;
   }
 
-  function render(t) {
+  function render(time) {
     const cw = canvas.width, ch = canvas.height;
     const scale = viewScale();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -775,13 +946,13 @@
     const list = cur.cats.filter(c => !c.dead);
     list.push(player);
     list.sort((a, b) => a.y - b.y);
-    for (const e of list) drawCat(e, t, e === player);
+    for (const e of list) drawCat(e, time, e === player);
 
     drawParticles();
 
     // джойстик — в экранных координатах
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (joy.id !== null) {
+    if (screen === 'game' && joy.id !== null) {
       ctx.strokeStyle = 'rgba(255,255,255,.4)';
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 55, 0, Math.PI * 2); ctx.stroke();
@@ -790,8 +961,47 @@
     }
   }
 
+  // ---------- Экраны ----------
+  function setScreen(name) {
+    screen = name;
+    document.body.dataset.screen = name;
+    document.getElementById('menu').classList.toggle('hidden', name !== 'menu');
+    document.getElementById('settings').classList.toggle('hidden', name !== 'settings');
+    if (name === 'game') {
+      pend.atk = pend.act = pend.paint = false;
+      keys.clear();
+      joy.id = null; joy.x = 0; joy.y = 0;
+      updateHud();
+    }
+  }
+
+  function toggleLang() {
+    lang = lang === 'ru' ? 'en' : 'ru';
+    try { localStorage.setItem('catLang', lang); } catch (e) { /* без сохранения — ничего страшного */ }
+    applyLang();
+    if (screen === 'game') updateHud();
+  }
+
+  document.getElementById('bPlay').addEventListener('click', () => {
+    setScreen('game');
+    showMsg(t('help'));
+  });
+  document.getElementById('bToSettings').addEventListener('click', () => setScreen('settings'));
+  document.getElementById('bBack').addEventListener('click', () => setScreen('menu'));
+  document.getElementById('bLang').addEventListener('click', toggleLang);
+  document.getElementById('bMenu').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    setScreen('menu');
+  });
+
   // ---------- Ввод ----------
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') {
+      if (screen === 'game') setScreen('menu');
+      else if (screen === 'settings') setScreen('menu');
+      return;
+    }
+    if (screen !== 'game') return;
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
     if (keys.has(e.code)) return;
     keys.add(e.code);
@@ -806,7 +1016,7 @@
     const el = document.getElementById(id);
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      pend[action] = true;
+      if (screen === 'game') pend[action] = true;
     });
   }
   bindBtn('bAtk', 'atk');
@@ -815,7 +1025,7 @@
 
   // Джойстик: касание в левой части экрана
   canvas.addEventListener('pointerdown', (e) => {
-    if (joy.id !== null || e.clientX > innerWidth * 0.55) return;
+    if (screen !== 'game' || joy.id !== null || e.clientX > innerWidth * 0.55) return;
     joy.id = e.pointerId;
     joy.ox = e.clientX;
     joy.oy = e.clientY;
@@ -851,8 +1061,10 @@
   window.addEventListener('resize', resize);
   resize();
 
+  document.querySelectorAll('canvas[data-icon]').forEach(c => drawIcon(c, c.dataset.icon));
+  applyLang();
   loadWorld('home', 5, 6);
-  showMsg('Ходи джойстиком слева · 🐾 атака · ✋ действие · 🖌 писать · (ПК: WASD, Пробел, E, G)');
+  setScreen('menu');
 
   let last = performance.now();
   function frame(now) {
