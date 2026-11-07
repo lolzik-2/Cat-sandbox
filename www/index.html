@@ -13,12 +13,25 @@
       touch-action: none; user-select: none; -webkit-user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
-    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+    /* HUD и кнопки видны только во время игры */
+    body:not([data-screen="game"]) #hud,
+    body:not([data-screen="game"]) #msg,
+    body:not([data-screen="game"]) #controls,
+    body:not([data-screen="game"]) #bMenu { display: none; }
+
     #hud {
       position: fixed; top: max(10px, env(safe-area-inset-top)); left: 10px;
       background: var(--ui-bg); padding: 6px 10px; border-radius: 10px;
       font-size: 14px; font-weight: 600; pointer-events: none;
+      display: flex; gap: 10px; align-items: center;
     }
+    .stat { display: inline-flex; align-items: center; gap: 4px; }
+    .ic { display: block; width: 18px; height: 18px; pointer-events: none; }
+    .ic.big { width: 30px; height: 30px; }
+    .ic.xl { width: 40px; height: 40px; }
+
     #msg {
       position: fixed; top: 14%; left: 50%; transform: translateX(-50%);
       max-width: 86%; text-align: center; background: rgba(0,0,0,.65);
@@ -26,6 +39,14 @@
       opacity: 0; transition: opacity .25s; pointer-events: none;
     }
     #msg.show { opacity: 1; }
+
+    #bMenu {
+      position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px;
+      width: 44px; height: 44px; border-radius: 12px; padding: 0;
+      border: 2px solid rgba(255,255,255,.4); background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+    }
+
     #controls {
       position: fixed; right: 14px; bottom: max(18px, env(safe-area-inset-bottom));
       display: flex; flex-direction: column; gap: 12px; align-items: flex-end;
@@ -34,25 +55,79 @@
     .btn {
       width: 64px; height: 64px; border-radius: 50%;
       border: 2px solid rgba(255,255,255,.5); background: rgba(255,255,255,.18);
-      color: var(--ui-text); font-size: 26px; padding: 0;
-      display: flex; align-items: center; justify-content: center;
+      padding: 0; display: flex; align-items: center; justify-content: center;
       touch-action: none;
     }
     .btn:active { background: rgba(255,255,255,.4); }
-    .btn.big { width: 84px; height: 84px; font-size: 34px; }
+    .btn.big { width: 84px; height: 84px; }
+
+    /* Экраны меню */
+    .screen {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(12,14,18,.7); z-index: 5;
+    }
+    .screen.hidden { display: none; }
+    .card {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      padding: 28px 24px; width: min(86%, 340px); text-align: center;
+      background: rgba(30,33,40,.92); border-radius: 18px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.5);
+    }
+    .card h1 { margin: 0; font-size: 26px; }
+    .card p { margin: 0 0 6px; opacity: .75; font-size: 15px; }
+    .pill {
+      width: 100%; max-width: 240px; padding: 12px 16px; border-radius: 14px;
+      border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12);
+      color: var(--ui-text); font-size: 17px; font-weight: 600;
+    }
+    .pill:active { background: rgba(255,255,255,.3); }
+    .pill.small { width: auto; max-width: none; padding: 8px 14px; font-size: 15px; }
+    .setting-line {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; gap: 12px; font-size: 16px;
+    }
   </style>
 </head>
-<body>
+<body data-screen="menu">
   <canvas id="game"></canvas>
-  <div id="hud"></div>
+
+  <div id="hud">
+    <span id="hudMap"></span>
+    <span class="stat"><canvas class="ic" data-icon="heart"></canvas><span id="hudHp"></span></span>
+    <span class="stat"><canvas class="ic" data-icon="star"></canvas><span id="hudScore"></span></span>
+  </div>
   <div id="msg"></div>
+
+  <button id="bMenu" data-i18n-aria="menu"><canvas class="ic" data-icon="menu"></canvas></button>
+
   <div id="controls">
     <div class="row">
-      <button id="bPaint" class="btn" aria-label="Писать">🖌️</button>
-      <button id="bAct" class="btn" aria-label="Действие">✋</button>
+      <button id="bPaint" class="btn" data-i18n-aria="paint"><canvas class="ic big" data-icon="brush"></canvas></button>
+      <button id="bAct" class="btn" data-i18n-aria="act"><canvas class="ic big" data-icon="hand"></canvas></button>
     </div>
-    <button id="bAtk" class="btn big" aria-label="Атака">🐾</button>
+    <button id="bAtk" class="btn big" data-i18n-aria="attack"><canvas class="ic xl" data-icon="paw"></canvas></button>
   </div>
+
+  <div id="menu" class="screen">
+    <div class="card">
+      <h1 data-i18n="title"></h1>
+      <p data-i18n="subtitle"></p>
+      <button id="bPlay" class="pill" data-i18n="play"></button>
+      <button id="bToSettings" class="pill" data-i18n="settings"></button>
+    </div>
+  </div>
+
+  <div id="settings" class="screen hidden">
+    <div class="card">
+      <h1 data-i18n="settings"></h1>
+      <div class="setting-line">
+        <span data-i18n="language"></span>
+        <button id="bLang" class="pill small"></button>
+      </div>
+      <button id="bBack" class="pill" data-i18n="back"></button>
+    </div>
+  </div>
+
   <script src="game.js"></script>
 </body>
 </html>
